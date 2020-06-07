@@ -90,13 +90,67 @@ in
         # Create a directory in persistent storage, so we can bind
         # mount it.
         mkDirCreationSnippet = persistentStoragePath: dir:
-          let
-            targetDir = concatPaths [ persistentStoragePath dir ];
-          in
           ''
-            if [[ ! -e "${targetDir}" ]]; then
-                mkdir -p "${targetDir}"
-            fi
+            # Given a source directory, /source, and a target directory,
+            # /target/foo/bar/bazz, we want to "clone" the target structure
+            # from source into the target. Essentially, we want both
+            # /source/target/foo/bar/bazz and /target/foo/bar/bazz to exist
+            # on the filesystem. More concretely, we'd like to map
+            # /state/etc/ssh/example.key to /etc/ssh/example.key
+            #
+            # To achieve this, we split the target's path into parts -- target, foo,
+            # bar, bazz -- and iterate over them while accumulating the path
+            # (/target/, /target/foo/, /target/foo/bar, and so on); then, for each of
+            # these increasingly qualified paths we:
+            #
+            #   1. Ensure both /source/qualifiedPath and qualifiedPath exist
+            #   2. Copy the ownership of the source path into the target path
+            #   3. Copy the mode of the source path into the target path
+
+            # capture the nix vars into bash to avoid escape hell
+            sourceBase="${persistentStoragePath}"
+            target="${dir}"
+
+            # trim trailing slashes the root of all evil
+            sourceBase="''${sourceBase%/}"
+            target="''${target%/}"
+
+            # iterate over each part of the target path, e.g. var, lib, iwd
+            previousPath="/"
+            for pathPart in $(echo "$target" | tr "/" " "); do
+              # construct the incremental path, e.g. /var, /var/lib, /var/lib/iwd
+              currentTargetPath="$previousPath$pathPart/"
+
+              # construct the source path, e.g. /state/var, /state/var/lib, ...
+              currentSourcePath="$sourceBase$currentTargetPath"
+
+              if [ ! -d "$currentSourcePath" ]; then
+                printf "Bind source '%s' does not exist, creating it\n" "$currentSourcePath"
+                mkdir "$currentSourcePath"
+              fi
+              if [ ! -d "$currentTargetPath" ]; then
+                mkdir "$currentTargetPath"
+              fi
+
+              # resolve the source path to avoid symlinks
+              currentRealSourcePath="$(realpath "$currentSourcePath")"
+
+              # synchronize perms between the two, should be a noop if they were
+              # both just created.
+              chown --reference="$currentRealSourcePath" "$currentTargetPath"
+              chmod --reference="$currentRealSourcePath" "$currentTargetPath"
+
+              # lastly we update the previousPath to continue down the tree
+              previousPath="$currentTargetPath"
+
+              unset currentRealSourcePath
+              unset currentSourcePath
+              unset currentTargetPath
+            done
+
+            unset previousPath
+            unset sourceBase
+            unset target
           '';
 
         # Build an activation script which creates all persistent
