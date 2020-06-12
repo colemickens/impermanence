@@ -108,9 +108,6 @@ in
             #   1. Ensure both /source/qualifiedPath and qualifiedPath exist
             #   2. Copy the ownership of the source path into the target path
             #   3. Copy the mode of the source path into the target path
-            #
-            # NB: The aggressive use of scopes is to avoid polluting the global
-            # namespace of the activation script without needing manual unsets.
             (
             # capture the nix vars into bash to avoid escape hell
             sourceBase="${persistentStoragePath}"
@@ -120,18 +117,17 @@ in
             sourceBase="''${sourceBase%/}"
             target="''${target%/}"
 
-            (
-            # check that the source exists
+            # check that the source exists, if it doesn't exit the underlying
+            # scope (the activation script will continue)
             realSource="$(realpath "$sourceBase$target")"
             if [ ! -d "$realSource" ]; then
                 printf "\e[1;31mBind source '%s' does not exist!\e[0m\n" "$realSource"
+                exit 1
             fi
-            )
-            (
+
             # iterate over each part of the target path, e.g. var, lib, iwd
             previousPath="/"
             for pathPart in $(echo "$target" | tr "/" " "); do
-              (
               # construct the incremental path, e.g. /var, /var/lib, /var/lib/iwd
               currentTargetPath="$previousPath$pathPart/"
 
@@ -151,9 +147,7 @@ in
 
               # lastly we update the previousPath to continue down the tree
               previousPath="$currentTargetPath"
-              )
             done
-            )
             )
           '';
 
