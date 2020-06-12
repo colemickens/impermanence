@@ -88,8 +88,9 @@ in
     system.activationScripts =
       let
         # Create a directory in persistent storage, so we can bind
-        # mount it.
-        mkDirCreationSnippet = persistentStoragePath: dir:
+        # mount it. The directory structure's mode and ownership mirror those of
+        # persistentStoragePath/dir;
+        mkDirWithModeAndPerms = persistentStoragePath: dir:
           ''
             # Given a source directory, /source, and a target directory,
             # /target/foo/bar/bazz, we want to "clone" the target structure
@@ -159,7 +160,7 @@ in
           nameValuePair
             "createDirsIn-${replaceStrings [ "/" "." " " ] [ "-" "" "" ] persistentStoragePath}"
             (noDepEntry (concatMapStrings
-              (mkDirCreationSnippet persistentStoragePath)
+              (mkDirWithModeAndPerms persistentStoragePath)
               cfg.${persistentStoragePath}.directories
             ));
       in
