@@ -108,7 +108,10 @@ in
             #   1. Ensure both /source/qualifiedPath and qualifiedPath exist
             #   2. Copy the ownership of the source path into the target path
             #   3. Copy the mode of the source path into the target path
-
+            #
+            # NB: The aggressive use of scopes is to avoid polluting the global
+            # namespace of the activation script without needing manual unsets.
+            (
             # capture the nix vars into bash to avoid escape hell
             sourceBase="${persistentStoragePath}"
             target="${dir}"
@@ -117,22 +120,26 @@ in
             sourceBase="''${sourceBase%/}"
             target="''${target%/}"
 
+            (
+            # check that the source exists
+            realSource="$(realpath "$sourceBase$target")"
+            if [ ! -d "$realSource" ]; then
+                printf "\e[1;31mBind source '%s' does not exist!\e[0m\n" "$realSource"
+            fi
+            )
+            (
             # iterate over each part of the target path, e.g. var, lib, iwd
             previousPath="/"
             for pathPart in $(echo "$target" | tr "/" " "); do
+              (
               # construct the incremental path, e.g. /var, /var/lib, /var/lib/iwd
               currentTargetPath="$previousPath$pathPart/"
 
               # construct the source path, e.g. /state/var, /state/var/lib, ...
               currentSourcePath="$sourceBase$currentTargetPath"
 
-              if [ ! -d "$currentSourcePath" ]; then
-                printf "Bind source '%s' does not exist, creating it\n" "$currentSourcePath"
-                mkdir "$currentSourcePath"
-              fi
-              if [ ! -d "$currentTargetPath" ]; then
-                mkdir "$currentTargetPath"
-              fi
+              # create the target directory if it doesn't already exist
+              mkdir "$currentTargetPath"
 
               # resolve the source path to avoid symlinks
               currentRealSourcePath="$(realpath "$currentSourcePath")"
@@ -144,15 +151,10 @@ in
 
               # lastly we update the previousPath to continue down the tree
               previousPath="$currentTargetPath"
-
-              unset currentRealSourcePath
-              unset currentSourcePath
-              unset currentTargetPath
+              )
             done
-
-            unset previousPath
-            unset sourceBase
-            unset target
+            )
+            )
           '';
 
         # Build an activation script which creates all persistent
