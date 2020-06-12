@@ -135,7 +135,7 @@ in
               currentSourcePath="$sourceBase$currentTargetPath"
 
               # create the target directory if it doesn't already exist
-              mkdir "$currentTargetPath"
+              mkdir "$currentTargetPath" || true
 
               # resolve the source path to avoid symlinks
               currentRealSourcePath="$(realpath "$currentSourcePath")"
