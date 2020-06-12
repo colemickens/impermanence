@@ -90,6 +90,7 @@ in
         # Create a directory in persistent storage, so we can bind
         # mount it. The directory structure's mode and ownership mirror those of
         # persistentStoragePath/dir;
+        # TODO: Move this script to it's own file, add CI with shfmt/shellcheck.
         mkDirWithModeAndPerms = persistentStoragePath: dir:
           ''
             # Given a source directory, /source, and a target directory,
