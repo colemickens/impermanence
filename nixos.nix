@@ -140,8 +140,7 @@ in
               # resolve the source path to avoid symlinks
               currentRealSourcePath="$(realpath "$currentSourcePath")"
 
-              # synchronize perms between the two, should be a noop if they were
-              # both just created.
+              # synchronize perms between source and target
               chown --reference="$currentRealSourcePath" "$currentTargetPath"
               chmod --reference="$currentRealSourcePath" "$currentTargetPath"
 
